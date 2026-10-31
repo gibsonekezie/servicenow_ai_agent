@@ -1,0 +1,13 @@
+{
+  "scope": "x_snc_ai_agentic",
+  "scopeId": "265ae73fb4984d838bd57381da6fa605",
+  "name": "ai_agentic",
+  "tsconfigPath": "./src/server/tsconfig.json",
+  "dependencies": {
+    "applications": {
+      "sn_aia": {
+        "tables": ["sn_aia_agent_definition"]
+      }
+    }
+  }
+}
