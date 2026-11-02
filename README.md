@@ -2,6 +2,8 @@
 
 Welcome to this step-by-step lab tutorial! In this hands-on guide, you will learn how to build, configure, and deploy an **AI Agent** on the ServiceNow platform using the official **ServiceNow SDK** (`@servicenow/sdk`) and TypeScript.
 
+NOTE: This lab assumes you have an existing servicenow account and instance. If you do not have an instance or you have just the free account, you can make use of the [servicenow university](https://learning.servicenow.com)[lab resource] (https://learning.servicenow.com/lxp/en/now-platform/ai-agents-build-an-intelligent-ai-agent-to-automate-your?id=learning_course_prev&course_id=8e97e115972dead07f7070871153af47) and request an instance.
+
 ---
 
 ## 🎯 Objectives
