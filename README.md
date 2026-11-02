@@ -42,137 +42,160 @@ servicenow_ai_agent/
 ├── package.json              # Project dependencies (@servicenow/sdk, typescript)
 ├── tsconfig.json             # TypeScript compiler settings
 └── src/
-    ├── server/
-    │   ├── tables/
-    │   │   └── ai_agent_task.ts   # Custom table definitions for the agent
-    │   ├── tools/
-    │   │   └── updateTaskStatus.ts# Custom tool / subflow exposed to the AI Agent
-    │   └── agents/
-    │       └── serviceAgent.ts    # Main AI Agent metadata & prompt definition
-    └── security/
-        └── acl.ts                 # Access control rules for the agent & tables
+    ├── fluent/
+    │    └── agent.now.ts     # Custom table definitions for the agent 
+    │    
+    └── server/
+        └── script.ts         # Glide logic definition
 ```
 
 ---
 
-## 🔬 Step-by-Step Codebase Walkthrough
+## 🔬 Step-by-Step  Walkthrough
+I split the code into four sections to reiterate points stated in the previous post
 
-### Step 1: Define Custom Data Schema (`src/server/tables/ai_agent_task.ts`)
-We begin by defining the target data structure using Fluent TS definitions from `@servicenow/sdk/core`.
+### Step 1: Define AI Agent(`src/fluent/agent,now.ts`)
+We begin by defining the AI agent using Fluent TS definitions from `@servicenow/sdk/core`. The $id variable creates a human readable identifier for AI agent and following that are definitions for agent structure(name, description and agentRole ). Remember this three fields needs to be unique and explicit.
+
 
 ```typescript
-import { Table, StringColumn, ChoiceColumn, ReferenceColumn } from '@servicenow/sdk/core';
+import { AiAgent } from "@servicenow/sdk/core";
 
-export const x_snc_ai_agent_task = Table({
-  name: 'x_snc_ai_agent_task',
-  label: 'AI Agent Task',
-  schema: {
-    short_description: StringColumn({ label: 'Short Description', maxLength: 160, mandatory: true }),
-    description: StringColumn({ label: 'Description', maxLength: 4000 }),
-    status: ChoiceColumn({
-      label: 'Status',
-      choices: {
-        new: { label: 'New' },
-        in_progress: { label: 'In Progress' },
-        resolved: { label: 'Resolved' },
-        closed: { label: 'Closed' }
-      },
-      defaultValue: 'new'
-    }),
-    assigned_to: ReferenceColumn({
-      label: 'Assigned To',
-      referenceTable: 'sys_user'
-    })
-  }
-});
+export const aclIncidentFixerAgent = AiAgent({
+    $id: Now.ID["acl_incident_fixer_agent"],               
+    name: "ACL Incident Fixer Agent",                       
+    description: "Retrieves incident details, confirms incidents is related to ACL and searches for resolution guidance.",
+    agentRole: "You are a specialist at ACL incidents resolution",
+    
+    //...rest of the code
+})
 ```
 
 ---
 
-### Step 2: Implement AI Agent Tools (`src/server/tools/updateTaskStatus.ts`)
-AI Agents need **Tools** (CRUD operations, Subflows, or Server Scripts) to interact with platform data and execute operations. Here, we define a tool that updates the task status.
+### Step 2: Implement Security ACL (`src/fluent/agent,now.ts`)
+Security ACL is required for AI Agents definitions. The security ACL defines who can invoke the ai agent. the $id gets assigned to the generated security ACl on servicenow instance. The specific role type ensures that only users with the listed roles can invoke the agent. 
 
 ```typescript
-import { ScriptInclude } from '@servicenow/sdk/core';
+    securityAcl: {
+        $id: Now.ID['acl_incident_fixer_agent_acl'],
+        type: 'Specific role',
+        roles: [
+            '282bf1fac6112285017366cb5f867469',  // itil
+            'b05926fa0a0a0aa7000130023e0bde98'   // user
+        ]
+    },
+```
 
-export const AgentToolUtils = ScriptInclude({
-  name: 'AgentToolUtils',
-  script: (inputs, outputs) => {
-    return {
-      updateTaskStatus: function (taskId: string, newStatus: string): boolean {
-        var gr = new GlideRecord('x_snc_ai_agent_task');
-        if (gr.get(taskId)) {
-          gr.setValue('status', newStatus);
-          gr.update();
-          return true;
+---
+
+### Step 3: agentDescriptor (`src/security/acl.ts`)
+This records the agent's creator on sn_aia_agent_config.agent_descriptor. The following lines handles version management and agent instructions.
+```typescript
+    agentDescriptor: 'created_by_build_agent',
+    channel: 'nap_and_va',
+    recordType: 'custom',
+    processingMessage: "Analyzing your incident request...",
+    postProcessingMessage: "Incident analysis complete.",
+
+    versionDetails: [{
+        name: "V1",
+        number: 1,
+        state: "published",
+        instructions: `Incidents are disruption or unavailability of a service or simply issue faced by an user. Your objective is to understand the issue, verify that it relates to ACL incident and recommend next steps for resolution.
+
+Step 1: Extract the incident number from the user's request.
+
+Step 2: Use the Lookup Incident tool to fetch details.
+
+Step 3: Fetch details of the incident. If details of the incident are not available then check the correctness of the incident number. DO NOT move forward if the incident details are not fetched. The details are the field values.
+
+Step 3: Present details in bullet-point format.
+
+Step 4: Use AIA Web Search for resolution guidance.
+
+Step 5: Recommend next steps. NEVER modify without user approval.
+
+Step 6: Ask for approval using this sentence: "Please respond 'yes' to accept the fixes or 'no' to reject them." Do not repeat the recommendation content in this step to avoid duplication.
+
+Step 7: Collect user's response.
+Step 7.1: ONLY accept a simple and exact "yes" or "no" as valid response. Any other response will be invalid, which include "approve", "update", "yes for category", etc..
+
+Step 7.2: If the response is invalid, ACKNOWLEDGE that:
+"The response is not supported. Please provide a simple 'yes' or 'no'."
+Then wait for user to give a valid response. DO NOT PROCEED without a valid response.
+
+Step 7.3: If user APPROVES recommendations.
+If the user responds with "yes", apply incident resolution.
+
+
+Step 7.4: If user REJECTS recommendations.
+If the user responds with "no", ACKNOWLEDGE the rejection by saying, "The recommendations have been rejected and no updates will be made." Then end the conversation.
+
+8. Update the incident with the approved values.
+
+7. End with a thank you note.`
+    }],
+```
+
+---
+### Step 4: Build Agent Tools (`src/security/acl.ts`)
+AI agent need **Tools** (CRUD operations, Subflows, or Server Scripts) to interact with platform data and execute instructed operations. Here, we define a tool that updates the task status.
+
+```typescript
+    tools: [
+        {
+            active: true,
+            name: "Lookup Incident",
+            description: "Searches for incidents by number",
+            executionMode: "autopilot",
+            type: "crud",
+            recordType: "custom",
+            preMessage: "Searching for the incident...",
+            postMessage: "Incident details retrieved.",
+            inputs: {
+                operationName: "lookup",
+                table: "incident",
+                inputFields: [
+                    { name: "incident_number", description: "Incident number", mandatory: false }
+                ],
+                queryCondition: "number={{incident_number}}",
+                returnFields: [
+                    { name: "number" },
+                    { name: "short_description" },
+                    { name: "state" },
+                    { name: "priority" },
+                    { name: "assigned_to", referenceConfig: { table: "sys_user", field: "name" } }
+                ]
+            }
+        },
+        {
+            type: "web_automation",
+            name: "AIA Web Search",
+            active: true,
+            preMessage: "Searching the web...",
+            postMessage: "Web search results retrieved."
         }
-        return false;
-      }
-    };
-  }
-});
+    ],
 ```
 
 ---
-
-### Step 3: Define Security & ACL Access (`src/security/acl.ts`)
-To adhere to enterprise security and Zero Trust rules, explicitly define access rights for the AI Agent execution context:
+### Step 4: Construct Trigger (`src/security/acl.ts`)
+Remember I told you triggers are optional. I chose not to define any.
 
 ```typescript
-import { AccessRule } from '@servicenow/sdk/core';
-
-export const TaskTableACL = AccessRule({
-  name: 'x_snc_ai_agent_task_write',
-  type: 'record',
-  operation: 'write',
-  table: 'x_snc_ai_agent_task',
-  securityAttribute: 'user_is_authenticated'
-});
+triggerConfig: []
 ```
 
 ---
-
-### Step 4: Construct the AI Agent Metadata (`src/server/agents/serviceAgent.ts`)
-Now, bring the schema, tools, and instructions together into an **AI Agent definition** using `@servicenow/sdk/ai`.
+### PS: Didn't select any Authentication
+By default if you don't select an authentication type your AI agent gets assigned a Dynamic User.
 
 ```typescript
-import { AIAgent } from '@servicenow/sdk/ai';
-
-export const IncidentResolutionAgent = AIAgent({
-  name: 'IncidentResolutionAgent',
-  label: 'Incident & Task Resolution Agent',
-  description: 'Autonomous AI agent that triages incoming tickets, checks context, and executes task status updates.',
-  
-  // Execution security context
-  authMode: 'DynamicUser', // Runs with the context of the interacting user
-  
-  // High-level system persona and instructions
-  instructions: `
-    You are an intelligent IT Service Management Assistant.
-    Your objective is to:
-    1. Read task descriptions carefully.
-    2. Assess whether all required information is provided.
-    3. Use the 'AgentToolUtils.updateTaskStatus' tool to move tasks to 'In Progress' or 'Resolved' based on context.
-    4. Provide a succinct summary of actions taken back to the user.
-  `,
-
-  // Connect tools available to this agent
-  tools: [
-    {
-      name: 'updateTaskStatus',
-      type: 'script_include',
-      reference: 'AgentToolUtils.updateTaskStatus',
-      description: 'Updates the status field on a given x_snc_ai_agent_task record.'
-    }
-  ],
-
-  // Execution behavior: Supervised asks for approval; Autonomous runs automatically
-  executionMode: 'Supervised'
-});
+triggerConfig: []
 ```
 
 ---
-
 ## 🚀 Build and Deployment
 
 ### 1. Validate and Build TypeScript Code
