@@ -7,10 +7,9 @@ Welcome to this step-by-step lab tutorial! In this hands-on guide, you will lear
 ## 🎯 Objectives
 By the end of this lab, you will understand:
 1. The architecture of ServiceNow SDK applications (`@servicenow/sdk`).
-2. How to define application schemas, custom tables, business logic, and security ACLs as code.
-3. How to build custom tools (Subflows, Actions, or Script Includes) for AI Agents.
-4. How to instantiate, configure, and deploy an **AI Agent** using metadata-as-code.
-5. How to test and verify your AI Agent workflow on a ServiceNow instance.
+2. How to define agent tools and security ACLs as code.
+3. How to instantiate, configure, and deploy an **AI Agent** using servicenow sdk.
+4. How to test and verify your AI Agent workflow on a ServiceNow instance.
 
 ---
 
@@ -225,8 +224,8 @@ now-sdk install --alias dev_instance
 3. Locate **Incident & Task Resolution Agent** (`IncidentResolutionAgent`).
 4. Click **Test Agent** or open the **Now Assist Panel**.
 5. Input a prompt:  
-   > *"I have a task record with ID `SYS_ID_HERE`. Please update its status to In Progress and summarize what you did."*
-6. Verify that the agent calls `AgentToolUtils.updateTaskStatus` and updates the record accordingly in the `x_snc_ai_agent_task` table.
+   > *"I have an incident record with ID `SYS_ID_HERE`. Please update its status to In Progress and summarize what you did."*
+6. Verify that the agent looksup incident using `incident_number` and updates the record accordingly in the `x_snc_ai_agent_task` table.
 
 ---
 
