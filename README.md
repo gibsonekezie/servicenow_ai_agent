@@ -221,7 +221,7 @@ now-sdk install --alias dev_instance
 
 1. Log into your **ServiceNow Instance**.
 2. Navigate to **All > AI Agent Studio > AI Agents**.
-3. Locate **Incident & Task Resolution Agent** (`IncidentResolutionAgent`).
+3. Locate **ACL Incident Fixer Agent** (`aclIncidentFixerAgent`).
 4. Click **Test Agent** or open the **Now Assist Panel**.
 5. Input a prompt:  
    > *"I have an incident record with ID `SYS_ID_HERE`. Please update its status to In Progress and summarize what you did."*
